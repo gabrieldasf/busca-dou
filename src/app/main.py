@@ -3,6 +3,8 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 from sqlalchemy import text
 
+from src.api.v1.routes.ingest import router as ingest_router
+from src.api.v1.routes.pdfs import router as pdfs_router
 from src.app.config import settings
 from src.app.database import engine
 
@@ -13,6 +15,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+app.include_router(ingest_router, prefix="/api/v1")
+app.include_router(pdfs_router, prefix="/api/v1")
 
 
 @app.get("/health")
