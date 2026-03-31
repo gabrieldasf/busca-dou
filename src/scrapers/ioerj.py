@@ -24,7 +24,7 @@ from src.scrapers.base import BaseAdapter, ScrapedPublication
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://portal.ioerj.com.br/portal/modules/conteudoonline"
+BASE_URL = "http://www.ioerj.com.br/portal/modules/conteudoonline"
 
 # Cadernos IOERJ: id -> (part_code, name)
 CADERNOS: dict[int, tuple[str, str]] = {
@@ -70,6 +70,8 @@ class IOERJAdapter(BaseAdapter):
                     ),
                 },
             )
+            # Initialize session by visiting the calendar page (gets PHPSESSID cookie)
+            await self._client.get(f"{BASE_URL}/do_seleciona_data.php")
         return self._client
 
     async def close(self) -> None:
@@ -82,12 +84,10 @@ class IOERJAdapter(BaseAdapter):
     async def list_available_dates(self, year: int, month: int) -> list[date]:
         """Return dates with published editions for the given month.
 
-        Requests the edition selection page and parses the HTML calendar
-        to find dates that have publication links (green/active dates).
+        Requests the calendar page and parses links to find dates
+        with published editions.
         """
-        target = date(year, month, 1)
-        encoded = self._encode_date(target)
-        url = f"{BASE_URL}/do_seleciona_edicao.php?data={encoded}"
+        url = f"{BASE_URL}/do_seleciona_data.php"
 
         html = await self._fetch_text(url)
         return self._parse_calendar_dates(html, year, month)
@@ -95,12 +95,9 @@ class IOERJAdapter(BaseAdapter):
     async def scrape_edition(self, edition_date: date) -> list[ScrapedPublication]:
         """Scrape all cadernos for a given edition date.
 
-        Flow:
-        1. Request edition selection page for the date
-        2. Extract caderno session tokens from HTML
-        3. Decode triple-base64 to get UUIDs
-        4. Download each caderno PDF
-        5. Parse PDF text into publications
+        The IOERJ site serves the full edition as a single PDF (all cadernos
+        concatenated). We download it once via the first caderno's viewer,
+        then parse and tag publications with their caderno info.
         """
         encoded = self._encode_date(edition_date)
         url = f"{BASE_URL}/do_seleciona_edicao.php?data={encoded}"
@@ -112,26 +109,27 @@ class IOERJAdapter(BaseAdapter):
             logger.warning("No cadernos found for date %s", edition_date)
             return []
 
-        publications: list[ScrapedPublication] = []
+        # Download the edition PDF once (all cadernos share the same PDF)
+        first_caderno_id, first_session = cadernos[0]
+        try:
+            publications = await self._scrape_caderno(
+                edition_date, first_caderno_id, first_session,
+            )
+        except Exception:
+            logger.exception("Failed to scrape edition for %s", edition_date)
+            return []
 
-        for caderno_id, session_token in cadernos:
-            try:
-                pubs = await self._scrape_caderno(edition_date, caderno_id, session_token)
-                publications.extend(pubs)
-            except Exception:
-                part_code = CADERNOS.get(caderno_id, (str(caderno_id), "Desconhecido"))[0]
-                logger.exception(
-                    "Failed to scrape caderno %s (%s) for %s",
-                    caderno_id,
-                    part_code,
-                    edition_date,
-                )
+        # Tag the edition with all available caderno names
+        caderno_names = [
+            CADERNOS.get(cid, (str(cid), "Desconhecido"))[1]
+            for cid, _ in cadernos
+        ]
 
         logger.info(
-            "Scraped %d publications from %d cadernos for %s",
+            "Scraped %d publications from %s (cadernos: %s)",
             len(publications),
-            len(cadernos),
             edition_date,
+            ", ".join(caderno_names),
         )
         return publications
 
@@ -143,20 +141,41 @@ class IOERJAdapter(BaseAdapter):
         caderno_id: int,
         session_token: str,
     ) -> list[ScrapedPublication]:
-        """Download and parse a single caderno PDF."""
+        """Download and parse a single caderno PDF.
+
+        Flow:
+        1. Visit viewer page (mostra_edicao.php?session=TOKEN) to trigger
+           server-side PDF generation
+        2. Download the generated PDF from include/pdfjs/web/tmp.pdf
+        """
         part_code, part_name = CADERNOS.get(caderno_id, (str(caderno_id), "Desconhecido"))
 
-        uuid_raw = self._decode_triple_base64(session_token)
-        # UUID is the first 36 chars (standard UUID length), rest is timestamp
-        uuid_str = uuid_raw[:36] if len(uuid_raw) >= 36 else uuid_raw
+        logger.info("Downloading caderno %s (%s) for %s", part_code, part_name, edition_date)
 
-        pdf_url = self._build_pdf_url(uuid_str)
-        logger.info("Downloading caderno %s (%s): %s", part_code, part_name, pdf_url)
+        # Visit viewer page - this prepares server-side PDF generation
+        viewer_url = f"{BASE_URL}/mostra_edicao.php?session={session_token}"
+        viewer_html = await self._fetch_text(viewer_url)
 
-        pdf_bytes = await self._fetch_bytes(pdf_url)
-        if not pdf_bytes:
-            logger.warning("Empty PDF for caderno %s on %s", part_code, edition_date)
+        # Extract pd variable (UUID) from viewer page
+        pd_match = re.search(r'var\s+pd\s*=\s*["\']([^"\']+)["\']', viewer_html)
+        if not pd_match:
+            logger.warning("No pd variable found for caderno %s on %s", part_code, edition_date)
             return []
+
+        pd_uuid = pd_match.group(1)
+
+        # Download the PDF - IOERJ serves the current edition's PDF
+        # at a static path after visiting the viewer
+        pdf_url = f"{BASE_URL}/include/pdfjs/web/tmp.pdf"
+        pdf_bytes = await self._fetch_bytes(pdf_url)
+        if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
+            logger.warning("Invalid PDF for caderno %s on %s", part_code, edition_date)
+            return []
+
+        logger.info(
+            "Downloaded %d bytes for caderno %s (%s) [pd=%s]",
+            len(pdf_bytes), part_code, part_name, pd_uuid[:8],
+        )
 
         # Cache PDF bytes for storage by the ingestion service
         self.pdf_cache[part_code] = pdf_bytes
@@ -242,54 +261,33 @@ class IOERJAdapter(BaseAdapter):
 
     @staticmethod
     def _parse_calendar_dates(html: str, year: int, month: int) -> list[date]:
-        """Parse the edition selection calendar to find dates with publications.
+        """Parse the calendar page to find dates with published editions.
 
-        Looks for links/anchors that indicate an available edition.
-        Active dates typically appear as clickable links with the day number.
+        Links follow the pattern:
+        <a href="do_seleciona_edicao.php?data=BASE64">DD</a>
+        where BASE64 decodes to YYYYMMDD.
         """
         dates: list[date] = []
 
-        # Pattern: look for day links in the calendar HTML
-        # The IOERJ calendar uses various patterns for active dates:
-        # - <a ...>DD</a> inside calendar cells
-        # - onclick handlers with date data
-        # - CSS classes indicating active/available dates
-        day_patterns = [
-            # Links with day numbers (most common pattern)
-            re.compile(r'<a[^>]*?data=["\']?([^"\'>\s]+)["\']?[^>]*>(\d{1,2})</a>', re.IGNORECASE),
-            # onclick with encoded date
-            re.compile(
-                r'onclick=["\'].*?data=([A-Za-z0-9+/=]+).*?["\']',
-                re.IGNORECASE,
-            ),
-            # Simple linked days in calendar cells
-            re.compile(
-                r'<td[^>]*class=["\'][^"\']*ativo[^"\']*["\'][^>]*>\s*(\d{1,2})\s*</td>',
-                re.IGNORECASE,
-            ),
-        ]
+        # Match links to do_seleciona_edicao.php with base64 data param
+        pattern = re.compile(
+            r'do_seleciona_edicao\.php\?data=([A-Za-z0-9+/=]+)["\'][^>]*>(\d{1,2})<',
+            re.IGNORECASE,
+        )
 
-        # Try each pattern
-        for pattern in day_patterns:
-            for match in pattern.finditer(html):
-                groups = match.groups()
-                day_str = groups[-1] if groups else None
-                if day_str and day_str.isdigit():
-                    day = int(day_str)
-                    if 1 <= day <= 31:
-                        try:
-                            dates.append(date(year, month, day))
-                        except ValueError:
-                            continue
-
-        # Fallback: look for any linked day numbers inside table cells
-        if not dates:
-            cell_pattern = re.compile(
-                r"<td[^>]*>\s*<a[^>]*>\s*(\d{1,2})\s*</a>\s*</td>",
-                re.IGNORECASE,
-            )
-            for match in cell_pattern.finditer(html):
-                day = int(match.group(1))
+        for match in pattern.finditer(html):
+            b64_data = match.group(1)
+            # Decode base64 to verify the year/month match
+            try:
+                decoded = base64.b64decode(b64_data).decode("ascii")
+                decoded_year = int(decoded[:4])
+                decoded_month = int(decoded[4:6])
+                decoded_day = int(decoded[6:8])
+                if decoded_year == year and decoded_month == month:
+                    dates.append(date(year, month, decoded_day))
+            except (ValueError, IndexError):
+                # Fallback: use the day number from the link text
+                day = int(match.group(2))
                 if 1 <= day <= 31:
                     try:
                         dates.append(date(year, month, day))
@@ -302,46 +300,39 @@ class IOERJAdapter(BaseAdapter):
     def _parse_cadernos(html: str) -> list[tuple[int, str]]:
         """Extract caderno IDs and session tokens from the edition page HTML.
 
+        The HTML follows the pattern:
+        <a href="mostra_edicao.php?session=TOKEN">Parte I (Poder Executivo)</a>
+
         Returns list of (caderno_id, session_token) tuples.
         """
         cadernos: list[tuple[int, str]] = []
 
-        # Pattern: links to mostra_edicao.php with session parameter
-        session_pattern = re.compile(
-            r'mostra_edicao\.php\?session=([A-Za-z0-9+/=]+)',
+        # Match: session token + link text containing part name
+        pattern = re.compile(
+            r'mostra_edicao\.php\?session=([A-Za-z0-9+/=]+)[^>]*>([^<]+)</a>',
             re.IGNORECASE,
         )
 
-        # Also look for caderno identifiers near the session links
-        # The HTML typically has caderno names/ids associated with each session link
-        block_pattern = re.compile(
-            r'(?:jornal|caderno|parte)[^\d]*(\d{1,2})[^<]*<[^>]*'
-            r'mostra_edicao\.php\?session=([A-Za-z0-9+/=]+)',
-            re.IGNORECASE | re.DOTALL,
-        )
+        # Map part names from HTML text to caderno IDs
+        part_name_to_id: dict[str, int] = {
+            "I": 12, "IA": 1, "IB": 2, "I DPGE": 13, "I JC": 20,
+            "II": 3, "III-E": 6, "III-F": 7, "IV": 5, "V": 4,
+            "DO Campos": 18,
+        }
 
-        for match in block_pattern.finditer(html):
-            caderno_id = int(match.group(1))
-            session_token = match.group(2)
+        for match in pattern.finditer(html):
+            session_token = match.group(1)
+            link_text = match.group(2).strip()
+
+            # Extract part code from link text like "Parte I (Poder Executivo)"
+            part_match = re.search(r"Parte\s+([\w\s-]+?)(?:\s*[\(-]|$)", link_text)
+            if part_match:
+                part_code = part_match.group(1).strip()
+                caderno_id = part_name_to_id.get(part_code, len(cadernos))
+            else:
+                caderno_id = len(cadernos)
+
             cadernos.append((caderno_id, session_token))
-
-        # If block pattern didn't work, try just finding session tokens
-        if not cadernos:
-            for match in session_pattern.finditer(html):
-                session_token = match.group(1)
-                # Try to find associated caderno ID by looking at surrounding text
-                start = max(0, match.start() - 500)
-                context = html[start : match.start()]
-
-                # Look for caderno ID in the context
-                id_match = re.search(r'(?:jornal|id)[=:]\s*["\']?(\d{1,2})', context, re.IGNORECASE)
-                if id_match:
-                    caderno_id = int(id_match.group(1))
-                else:
-                    # Assign sequential ID if we can't determine the real one
-                    caderno_id = len(cadernos)
-
-                cadernos.append((caderno_id, session_token))
 
         return cadernos
 
