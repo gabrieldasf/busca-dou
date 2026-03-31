@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS base
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -7,20 +7,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir .
-
-FROM python:3.12-slim AS runtime
-
-WORKDIR /app
-
-COPY --from=base /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=base /usr/local/bin /usr/local/bin
-
 COPY src/ src/
 COPY migrations/ migrations/
 COPY alembic.ini .
 COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+
+RUN pip install --no-cache-dir . && \
+    apt-get purge -y --auto-remove build-essential && \
+    chmod +x entrypoint.sh
 
 EXPOSE 8000
 
