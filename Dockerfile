@@ -19,7 +19,9 @@ COPY --from=base /usr/local/bin /usr/local/bin
 COPY src/ src/
 COPY migrations/ migrations/
 COPY alembic.ini .
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./entrypoint.sh"]

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 
 @dataclass
@@ -13,7 +14,7 @@ class ScrapedPublication:
     published_at: date
     page_number: int | None
     pdf_url: str | None
-    metadata: dict | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class BaseAdapter(ABC):

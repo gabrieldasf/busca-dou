@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "busca-dou"
 version = "0.1.0"
@@ -36,6 +40,14 @@ ignore = ["S101"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[[tool.mypy.overrides]]
+module = ["asyncpg.*", "arq.*", "pdfplumber.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

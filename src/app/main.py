@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from sqlalchemy import text
@@ -30,5 +30,5 @@ async def health_check() -> dict[str, str]:
         "version": "0.1.0",
         "environment": settings.environment,
         "db": db_status,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }

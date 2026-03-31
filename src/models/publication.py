@@ -1,5 +1,6 @@
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
+from typing import Any
 
 from sqlalchemy import (
     Column,
@@ -11,7 +12,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -41,9 +41,9 @@ class Publication(Base):
     page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     pdf_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_pdf_key: Mapped[str | None] = mapped_column(Text, nullable=True)
-    metadata_extra: Mapped[dict | None] = mapped_column(JSONB, default=dict)
+    metadata_extra: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     __table_args__ = (
