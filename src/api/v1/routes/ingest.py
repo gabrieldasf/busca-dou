@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import CursorResult, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app.database import get_session
+from src.models.publication import Publication
 from src.services.ingestion import IngestionService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
 
@@ -47,4 +52,30 @@ async def ingest_edition(
         date=request.date,
         publications_count=count,
         status="completed",
+    )
+
+
+@router.post("/reingest", response_model=IngestResponse)
+async def reingest_edition(
+    request: IngestRequest,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> IngestResponse:
+    """Delete existing publications for a date and re-ingest."""
+    del_stmt = delete(Publication).where(Publication.published_at == request.date)
+    raw_result = await session.execute(del_stmt)
+    cursor_result: CursorResult[Any] = raw_result  # type: ignore[assignment]
+    deleted = cursor_result.rowcount
+    logger.info("Deleted %d existing publications for %s", deleted, request.date)
+
+    service = IngestionService(session)
+    try:
+        count = await service.ingest_edition(request.source, request.date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return IngestResponse(
+        source=request.source,
+        date=request.date,
+        publications_count=count,
+        status="reingested",
     )

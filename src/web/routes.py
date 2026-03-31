@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from pathlib import Path
 from typing import Annotated
 
+import markupsafe
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -20,14 +22,50 @@ logger = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
+
+def _nl2p(text: str) -> markupsafe.Markup:
+    """Convert double newlines to paragraphs, single newlines to <br>."""
+    if not text:
+        return markupsafe.Markup("")
+    paragraphs = re.split(r'\n\s*\n', text)
+    html_parts = []
+    for p in paragraphs:
+        p = p.strip()
+        if p:
+            escaped = markupsafe.escape(p)
+            escaped = escaped.replace('\n', markupsafe.Markup('<br>'))
+            html_parts.append(markupsafe.Markup(f'<p>{escaped}</p>'))  # noqa: S704
+    return markupsafe.Markup('\n'.join(html_parts))  # noqa: S704
+
+
+templates.env.filters['nl2p'] = _nl2p
+
 router = APIRouter(tags=["web"])
 
 
 @router.get("/", response_class=HTMLResponse)
-async def search_page(request: Request) -> HTMLResponse:
+async def search_page(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
     """Render the search page (initial load, no results)."""
+    organs_result = await session.execute(
+        select(Publication.organ).where(Publication.organ.is_not(None)).distinct().order_by(Publication.organ)
+    )
+    sections_result = await session.execute(
+        select(Publication.section).where(Publication.section.is_not(None)).distinct().order_by(Publication.section)
+    )
+    act_types_result = await session.execute(
+        select(Publication.act_type).where(Publication.act_type.is_not(None)).distinct().order_by(Publication.act_type)
+    )
     return templates.TemplateResponse(
-        request, "search.html", {"publications": None, "q": None}
+        request, "search.html", {
+            "publications": None,
+            "q": None,
+            "organs": [r[0] for r in organs_result.all()],
+            "sections": [r[0] for r in sections_result.all()],
+            "act_types": [r[0] for r in act_types_result.all()],
+        }
     )
 
 
@@ -40,6 +78,7 @@ async def search_results(
     date_to: str | None = None,
     organ: str | None = None,
     section: str | None = None,
+    act_type: str | None = None,
     cursor: str | None = None,
     limit: int = Query(default=20, ge=1, le=100),
 ) -> HTMLResponse:
@@ -85,6 +124,8 @@ async def search_results(
         stmt = stmt.where(Publication.organ == organ)
     if section:
         stmt = stmt.where(Publication.section == section)
+    if act_type:
+        stmt = stmt.where(Publication.act_type == act_type)
 
     if cursor:
         from sqlalchemy import tuple_
@@ -109,6 +150,8 @@ async def search_results(
         count_stmt = count_stmt.where(Publication.organ == organ)
     if section:
         count_stmt = count_stmt.where(Publication.section == section)
+    if act_type:
+        count_stmt = count_stmt.where(Publication.act_type == act_type)
 
     count_result = await session.execute(count_stmt)
     total = count_result.scalar() or 0
@@ -128,10 +171,27 @@ async def search_results(
         last = rows[-1]
         next_cursor = encode_cursor(last.published_at, last.id)
 
+    organs_result = await session.execute(
+        select(Publication.organ).where(Publication.organ.is_not(None)).distinct().order_by(Publication.organ)
+    )
+    sections_result = await session.execute(
+        select(Publication.section).where(Publication.section.is_not(None)).distinct().order_by(Publication.section)
+    )
+    act_types_result = await session.execute(
+        select(Publication.act_type).where(Publication.act_type.is_not(None)).distinct().order_by(Publication.act_type)
+    )
+
     return templates.TemplateResponse(
         request,
         "partials/results.html",
-        {"publications": rows, "total": total, "q": q, "next_cursor": next_cursor},
+        {
+            "publications": rows, "total": total, "q": q, "next_cursor": next_cursor,
+            "date_from": date_from, "date_to": date_to,
+            "organ": organ, "section": section, "act_type": act_type,
+            "organs": [r[0] for r in organs_result.all()],
+            "sections": [r[0] for r in sections_result.all()],
+            "act_types": [r[0] for r in act_types_result.all()],
+        },
     )
 
 

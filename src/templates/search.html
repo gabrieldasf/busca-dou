@@ -2,48 +2,87 @@
 {% block title %}BuscaDOU - Busca em Diarios Oficiais{% endblock %}
 
 {% block content %}
-<div class="mb-8">
-  <h1 class="text-2xl font-bold text-brand-900 mb-1">Busca em Diarios Oficiais</h1>
-  <p class="text-gray-500">Pesquise publicacoes do IOERJ com busca full-text.</p>
-</div>
-
 <form hx-get="/search-results" hx-target="#results" hx-indicator="#search-spinner"
-      class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
-  <div class="flex gap-3">
-    <input type="text" name="q" value="{{ q or '' }}" placeholder="Pesquisar por palavras-chave..."
-           class="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+      class="pt-20 pb-8">
+  <div class="relative">
+    <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+    <input type="text" name="q" value="{{ q or '' }}" placeholder="Buscar publicacoes..."
+           class="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-14 pr-6 text-lg shadow-sm focus:shadow-md focus:outline-none transition-shadow duration-150"
            autofocus>
-    <button type="submit"
-            class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
-      Buscar
-    </button>
+    <button type="submit" class="hidden">Buscar</button>
   </div>
 
-  <details class="mt-3">
-    <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-700">Filtros avancados</summary>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-      <div>
-        <label class="text-xs text-gray-500 block mb-1">Data inicio</label>
-        <input type="date" name="date_from" value="{{ date_from or '' }}"
-               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
-      </div>
-      <div>
-        <label class="text-xs text-gray-500 block mb-1">Data fim</label>
-        <input type="date" name="date_to" value="{{ date_to or '' }}"
-               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
-      </div>
-      <div>
-        <label class="text-xs text-gray-500 block mb-1">Orgao</label>
-        <input type="text" name="organ" value="{{ organ or '' }}" placeholder="Ex: Governo do Estado"
-               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
-      </div>
-      <div>
-        <label class="text-xs text-gray-500 block mb-1">Secao</label>
-        <input type="text" name="section" value="{{ section or '' }}" placeholder="Ex: Poder Executivo"
-               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
-      </div>
+  <div class="mt-4">
+    <div class="flex flex-wrap gap-2">
+      <button type="button" data-chip data-days="0"
+              onclick="setDateRange(0)"
+              class="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors duration-150 cursor-pointer">
+        Hoje
+      </button>
+      <button type="button" data-chip data-days="7"
+              onclick="setDateRange(7)"
+              class="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors duration-150 cursor-pointer">
+        Ultima semana
+      </button>
+      <button type="button" data-chip data-days="30"
+              onclick="setDateRange(30)"
+              class="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors duration-150 cursor-pointer">
+        Ultimo mes
+      </button>
+      <input type="date" name="date_from" value="{{ date_from or '' }}"
+             hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
+             class="text-xs rounded-lg border border-gray-200 px-2 py-1 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+      <input type="date" name="date_to" value="{{ date_to or '' }}"
+             hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
+             class="text-xs rounded-lg border border-gray-200 px-2 py-1 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
     </div>
-  </details>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
+      <select name="organ"
+              hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
+              class="text-sm rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+        <option value="">Todos os orgaos</option>
+        {% for o in organs|default([]) %}
+          <option value="{{ o }}" {% if organ == o %}selected{% endif %}>{{ o }}</option>
+        {% endfor %}
+      </select>
+      <select name="section"
+              hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
+              class="text-sm rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+        <option value="">Todas as secoes</option>
+        {% for s in sections|default([]) %}
+          <option value="{{ s }}" {% if section == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <select name="act_type"
+              hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
+              class="text-sm rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+        <option value="">Todos os tipos</option>
+        {% for a in act_types|default([]) %}
+          <option value="{{ a }}" {% if act_type == a %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <script>
+  function setDateRange(days) {
+    var form = document.querySelector('form');
+    var today = new Date();
+    var from = new Date(today);
+    from.setDate(from.getDate() - days);
+    form.querySelector('[name=date_from]').value = from.toISOString().split('T')[0];
+    form.querySelector('[name=date_to]').value = today.toISOString().split('T')[0];
+    document.querySelectorAll('[data-chip]').forEach(function(c) {
+      c.classList.remove('bg-gray-900', 'text-white', 'border-gray-900');
+      c.classList.add('text-gray-500', 'border-gray-200');
+    });
+    event.target.classList.add('bg-gray-900', 'text-white', 'border-gray-900');
+    event.target.classList.remove('text-gray-500', 'border-gray-200');
+    htmx.trigger(form, 'submit');
+  }
+  </script>
 </form>
 
 <div id="results">

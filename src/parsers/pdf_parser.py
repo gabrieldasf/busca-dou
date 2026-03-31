@@ -12,10 +12,21 @@ import re
 from pathlib import Path
 
 import pdfplumber
+import pypdfium2 as pdfium
 
 from src.parsers.base import BaseParser, ParsedBlock
 
 logger = logging.getLogger(__name__)
+
+_CID_PATTERN = re.compile(r"\(cid:\d+\)")
+
+
+def _cid_ratio(text: str) -> float:
+    """Fraction of text that is (cid:XX) mojibake patterns."""
+    if not text:
+        return 0.0
+    cid_chars = sum(len(m.group()) for m in _CID_PATTERN.finditer(text))
+    return cid_chars / len(text)
 
 # Section header patterns - uppercase titles that start a new section
 _SECTION_PATTERNS: list[re.Pattern[str]] = [
@@ -89,21 +100,65 @@ class PDFParser(BaseParser):
         """
         return await asyncio.to_thread(self._parse_sync, file_path)
 
-    def _parse_sync(self, file_path: Path) -> list[ParsedBlock]:
-        """Synchronous PDF parsing implementation."""
-        blocks: list[ParsedBlock] = []
+    def _extract_with_pypdfium2(self, file_path: Path) -> dict[int, str]:
+        """Extract text using pypdfium2 (Google PDFium) as fallback."""
+        pages: dict[int, str] = {}
+        doc = pdfium.PdfDocument(str(file_path))
+        for i in range(len(doc)):
+            page = doc[i]
+            textpage = page.get_textpage()
+            text = textpage.get_text_range()
+            pages[i + 1] = text  # 1-indexed
+            textpage.close()
+            page.close()
+        doc.close()
+        return pages
 
+    def _parse_sync(self, file_path: Path) -> list[ParsedBlock]:
+        """Synchronous PDF parsing with pypdfium2 fallback for mojibake pages."""
+        blocks: list[ParsedBlock] = []
+        fallback_pages: set[int] = set()
+
+        # Pass 1: pdfplumber
         try:
             with pdfplumber.open(file_path) as pdf:
                 for page_num, page in enumerate(pdf.pages, start=1):
                     text = page.extract_text()
                     if not text:
                         continue
+                    ratio = _cid_ratio(text)
+                    if ratio > 0.05:
+                        logger.warning(
+                            "Page %d has %.1f%% CID mojibake, will use pypdfium2 fallback",
+                            page_num,
+                            ratio * 100,
+                        )
+                        fallback_pages.add(page_num)
+                    else:
+                        page_blocks = self._split_into_blocks(text, page_num)
+                        blocks.extend(page_blocks)
+        except Exception:
+            logger.exception("Failed to parse PDF with pdfplumber: %s", file_path)
 
+        # Pass 2: pypdfium2 for mojibake pages
+        if fallback_pages:
+            try:
+                pypdfium2_texts = self._extract_with_pypdfium2(file_path)
+                for page_num in sorted(fallback_pages):
+                    text = pypdfium2_texts.get(page_num, "")
+                    if not text:
+                        continue
+                    new_ratio = _cid_ratio(text)
+                    if new_ratio > 0.05:
+                        logger.warning(
+                            "pypdfium2 also has %.1f%% CID on page %d, using anyway",
+                            new_ratio * 100,
+                            page_num,
+                        )
                     page_blocks = self._split_into_blocks(text, page_num)
                     blocks.extend(page_blocks)
-        except Exception:
-            logger.exception("Failed to parse PDF: %s", file_path)
+            except Exception:
+                logger.exception("pypdfium2 fallback failed for: %s", file_path)
 
         logger.debug("Extracted %d blocks from %s", len(blocks), file_path.name)
         return blocks

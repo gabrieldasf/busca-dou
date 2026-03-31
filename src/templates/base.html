@@ -9,46 +9,43 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body { font-family: 'Inter', sans-serif; }
-    mark { background: #fef08a; padding: 1px 2px; border-radius: 2px; }
+    mark { background: #fef3c7; padding: 0 2px; border-radius: 2px; }
     .htmx-indicator { display: none; }
     .htmx-request .htmx-indicator { display: inline-block; }
     .htmx-request .htmx-hide-on-request { opacity: 0.5; pointer-events: none; }
+    input:focus { box-shadow: 0 0 0 3px rgba(59, 108, 245, 0.1); }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   </style>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            brand: { 50: '#f0f5ff', 100: '#e0eaff', 500: '#3b6cf5', 600: '#2952cc', 700: '#1e3fa6', 900: '#0f1f52' }
+            brand: { DEFAULT: '#0f1f52', light: '#3b6cf5' }
           }
         }
       }
     }
   </script>
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen">
-  <header class="bg-brand-900 text-white">
-    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-2 hover:opacity-90">
-        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        <span class="text-lg font-bold tracking-tight">BuscaDOU</span>
-      </a>
-      <nav class="text-sm text-brand-100 flex gap-4">
-        <a href="/" class="hover:text-white">Busca</a>
-        <a href="/docs" class="hover:text-white">API Docs</a>
+<body class="bg-[#fafafa] text-gray-900 min-h-screen">
+  <header class="bg-white border-b border-gray-100">
+    <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
+      <a href="/" class="text-lg font-semibold tracking-tight text-gray-900">BuscaDOU</a>
+      <nav class="text-sm flex gap-4">
+        <a href="/" class="text-gray-400 hover:text-gray-900 transition-colors duration-150">Busca</a>
+        <a href="/docs" class="text-gray-400 hover:text-gray-900 transition-colors duration-150">API Docs</a>
       </nav>
     </div>
   </header>
 
-  <main class="max-w-5xl mx-auto px-4 py-8">
+  <main class="max-w-3xl mx-auto px-4 py-8">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="border-t border-gray-200 mt-16">
-    <div class="max-w-5xl mx-auto px-4 py-6 text-center text-sm text-gray-400">
-      BuscaDOU - Diarios Oficiais do Brasil &middot; Blend Tech & Cultura
+  <footer class="border-t border-gray-100 mt-16">
+    <div class="max-w-3xl mx-auto px-4 py-6 text-center text-xs text-gray-400">
+      BuscaDOU - Diarios Oficiais
     </div>
   </footer>
 </body>
