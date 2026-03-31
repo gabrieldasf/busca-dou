@@ -1,0 +1,70 @@
+<div class="htmx-hide-on-request">
+  {% if publications is not none %}
+    <div class="flex items-center justify-between mb-4">
+      <p class="text-sm text-gray-500">
+        {% if total == 0 %}
+          Nenhuma publicacao encontrada.
+        {% else %}
+          {{ total }} resultado{{ 's' if total != 1 else '' }} encontrado{{ 's' if total != 1 else '' }}
+        {% endif %}
+      </p>
+      <span id="search-spinner" class="htmx-indicator">
+        <svg class="animate-spin h-5 w-5 text-brand-500" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+      </span>
+    </div>
+
+    {% for pub in publications %}
+    <a href="/pub/{{ pub.id }}" class="block bg-white rounded-xl border border-gray-200 hover:border-brand-500 hover:shadow-md transition-all p-5 mb-3">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1 min-w-0">
+          <h3 class="font-semibold text-brand-900 text-sm leading-snug mb-1 truncate">
+            {{ pub.title or 'Publicacao sem titulo' }}
+          </h3>
+          {% if pub.snippet %}
+            <p class="text-sm text-gray-600 leading-relaxed mb-2">{{ pub.snippet | safe }}</p>
+          {% endif %}
+          <div class="flex flex-wrap gap-2 text-xs text-gray-400">
+            {% if pub.organ %}
+              <span class="bg-gray-100 px-2 py-0.5 rounded">{{ pub.organ }}</span>
+            {% endif %}
+            {% if pub.section %}
+              <span class="bg-gray-100 px-2 py-0.5 rounded">{{ pub.section }}</span>
+            {% endif %}
+            {% if pub.act_type %}
+              <span class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">{{ pub.act_type }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <span class="text-xs text-gray-400 block">{{ pub.published_at.strftime('%d/%m/%Y') }}</span>
+          {% if pub.relevance is not none %}
+            <span class="text-xs text-brand-500 font-medium">{{ '%.1f' | format(pub.relevance * 100) }}%</span>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+
+    {% if next_cursor %}
+    <div class="text-center mt-6">
+      <button hx-get="/search-results?q={{ q or '' }}&cursor={{ next_cursor }}"
+              hx-target="#results" hx-swap="innerHTML"
+              class="text-sm text-brand-600 hover:text-brand-700 font-medium py-2 px-4 rounded-lg border border-brand-200 hover:bg-brand-50 transition-colors">
+        Carregar mais resultados
+      </button>
+    </div>
+    {% endif %}
+
+  {% else %}
+    <div class="text-center py-16">
+      <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <p class="text-gray-400 text-lg mb-1">Pesquise nos Diarios Oficiais</p>
+      <p class="text-gray-400 text-sm">Digite palavras-chave para buscar publicacoes do IOERJ.</p>
+    </div>
+  {% endif %}
+</div>

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}BuscaDOU - Busca em Diarios Oficiais{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <h1 class="text-2xl font-bold text-brand-900 mb-1">Busca em Diarios Oficiais</h1>
+  <p class="text-gray-500">Pesquise publicacoes do IOERJ com busca full-text.</p>
+</div>
+
+<form hx-get="/search-results" hx-target="#results" hx-indicator="#search-spinner"
+      class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-6">
+  <div class="flex gap-3">
+    <input type="text" name="q" value="{{ q or '' }}" placeholder="Pesquisar por palavras-chave..."
+           class="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+           autofocus>
+    <button type="submit"
+            class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+      Buscar
+    </button>
+  </div>
+
+  <details class="mt-3">
+    <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-700">Filtros avancados</summary>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Data inicio</label>
+        <input type="date" name="date_from" value="{{ date_from or '' }}"
+               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Data fim</label>
+        <input type="date" name="date_to" value="{{ date_to or '' }}"
+               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Orgao</label>
+        <input type="text" name="organ" value="{{ organ or '' }}" placeholder="Ex: Governo do Estado"
+               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">Secao</label>
+        <input type="text" name="section" value="{{ section or '' }}" placeholder="Ex: Poder Executivo"
+               class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm">
+      </div>
+    </div>
+  </details>
+</form>
+
+<div id="results">
+  {% include "partials/results.html" %}
+</div>
+{% endblock %}

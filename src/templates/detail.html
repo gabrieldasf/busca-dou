@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ pub.title or 'Publicacao' }} - BuscaDOU{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="/" class="text-sm text-brand-600 hover:text-brand-700 flex items-center gap-1 mb-4">
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M15 19l-7-7 7-7"/>
+    </svg>
+    Voltar para busca
+  </a>
+
+  <h1 class="text-xl font-bold text-brand-900 mb-2">{{ pub.title or 'Publicacao sem titulo' }}</h1>
+
+  <div class="flex flex-wrap gap-2 text-xs mb-4">
+    <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded">{{ pub.published_at.strftime('%d/%m/%Y') }}</span>
+    {% if pub.organ %}
+      <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded">{{ pub.organ }}</span>
+    {% endif %}
+    {% if pub.section %}
+      <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded">{{ pub.section }}</span>
+    {% endif %}
+    {% if pub.act_type %}
+      <span class="bg-blue-50 text-blue-600 px-2 py-1 rounded">{{ pub.act_type }}</span>
+    {% endif %}
+    {% if pub.page_number %}
+      <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded">Pag. {{ pub.page_number }}</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+  <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed">{{ pub.body }}</div>
+</div>
+
+{% if pub.pdf_url %}
+<div class="mt-4">
+  <a href="{{ pub.pdf_url }}" target="_blank" rel="noopener"
+     class="inline-flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700 font-medium">
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+    </svg>
+    Ver PDF original
+  </a>
+</div>
+{% endif %}
+{% endblock %}

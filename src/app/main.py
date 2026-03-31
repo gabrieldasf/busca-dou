@@ -9,6 +9,7 @@ from src.api.v1.routes.publications import router as publications_router
 from src.api.v1.routes.sources import router as sources_router
 from src.app.config import settings
 from src.app.database import engine
+from src.web.routes import router as web_router
 
 app = FastAPI(
     title="BuscaDOU",
@@ -18,6 +19,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+app.include_router(web_router)
 app.include_router(ingest_router, prefix="/api/v1")
 app.include_router(pdfs_router, prefix="/api/v1")
 app.include_router(publications_router, prefix="/api/v1")
