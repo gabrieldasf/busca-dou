@@ -113,17 +113,16 @@ class IOERJAdapter(BaseAdapter):
         first_caderno_id, first_session = cadernos[0]
         try:
             publications = await self._scrape_caderno(
-                edition_date, first_caderno_id, first_session,
+                edition_date,
+                first_caderno_id,
+                first_session,
             )
         except Exception:
             logger.exception("Failed to scrape edition for %s", edition_date)
             return []
 
         # Tag the edition with all available caderno names
-        caderno_names = [
-            CADERNOS.get(cid, (str(cid), "Desconhecido"))[1]
-            for cid, _ in cadernos
-        ]
+        caderno_names = [CADERNOS.get(cid, (str(cid), "Desconhecido"))[1] for cid, _ in cadernos]
 
         logger.info(
             "Scraped %d publications from %s (cadernos: %s)",
@@ -174,7 +173,10 @@ class IOERJAdapter(BaseAdapter):
 
         logger.info(
             "Downloaded %d bytes for caderno %s (%s) [pd=%s]",
-            len(pdf_bytes), part_code, part_name, pd_uuid[:8],
+            len(pdf_bytes),
+            part_code,
+            part_name,
+            pd_uuid[:8],
         )
 
         # Cache PDF bytes for storage by the ingestion service
@@ -309,14 +311,22 @@ class IOERJAdapter(BaseAdapter):
 
         # Match: session token + link text containing part name
         pattern = re.compile(
-            r'mostra_edicao\.php\?session=([A-Za-z0-9+/=]+)[^>]*>([^<]+)</a>',
+            r"mostra_edicao\.php\?session=([A-Za-z0-9+/=]+)[^>]*>([^<]+)</a>",
             re.IGNORECASE,
         )
 
         # Map part names from HTML text to caderno IDs
         part_name_to_id: dict[str, int] = {
-            "I": 12, "IA": 1, "IB": 2, "I DPGE": 13, "I JC": 20,
-            "II": 3, "III-E": 6, "III-F": 7, "IV": 5, "V": 4,
+            "I": 12,
+            "IA": 1,
+            "IB": 2,
+            "I DPGE": 13,
+            "I JC": 20,
+            "II": 3,
+            "III-E": 6,
+            "III-F": 7,
+            "IV": 5,
+            "V": 4,
             "DO Campos": 18,
         }
 

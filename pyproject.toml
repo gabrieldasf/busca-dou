@@ -17,6 +17,8 @@ dependencies = [
     "pdfplumber>=0.11.0",
     "httpx>=0.28.0",
     "arq>=0.26.0",
+    "pgvector>=0.3.0",
+    "openai>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -46,7 +48,7 @@ where = ["."]
 include = ["src*"]
 
 [[tool.mypy.overrides]]
-module = ["asyncpg.*", "arq.*", "pdfplumber.*"]
+module = ["asyncpg.*", "arq.*", "pdfplumber.*", "pgvector.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

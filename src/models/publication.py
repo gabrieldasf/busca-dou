@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, date, datetime
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Column,
     Computed,
@@ -22,9 +23,7 @@ from src.models.base import Base
 class Publication(Base):
     __tablename__ = "publications"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sources.id"), nullable=False
     )
@@ -42,6 +41,7 @@ class Publication(Base):
     pdf_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_pdf_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     metadata_extra: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=dict)
+    embedding = mapped_column(Vector(1536), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

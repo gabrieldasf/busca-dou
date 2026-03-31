@@ -56,9 +56,7 @@ _ACT_TYPES: dict[str, re.Pattern[str]] = {
     "LEI COMPLEMENTAR": re.compile(
         r"^LEI\s+COMPLEMENTAR\s+(?:N[.ºO°]\s*)?\d+", re.MULTILINE | re.IGNORECASE
     ),
-    "RESOLUCAO": re.compile(
-        r"^RESOLU[CÇ][AÃ]O\s+(?:N[.ºO°]\s*)?\d+", re.MULTILINE | re.IGNORECASE
-    ),
+    "RESOLUCAO": re.compile(r"^RESOLU[CÇ][AÃ]O\s+(?:N[.ºO°]\s*)?\d+", re.MULTILINE | re.IGNORECASE),
     "PORTARIA": re.compile(r"^PORTARIA\s+(?:N[.ºO°]\s*)?\d+", re.MULTILINE | re.IGNORECASE),
     "EDITAL": re.compile(r"^EDITAL\s+(?:N[.ºO°]\s*)?\d+", re.MULTILINE | re.IGNORECASE),
     "EXTRATO": re.compile(r"^EXTRATO\s+(?:DE\s+)?", re.MULTILINE | re.IGNORECASE),

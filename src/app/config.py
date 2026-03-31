@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     api_secret_key: str = "change-me-in-production"  # noqa: S105
     environment: str = "development"
     debug: bool = False
+    openrouter_api_key: str = ""
+    embedding_model: str = "openai/text-embedding-3-small"
+    summary_model: str = "anthropic/claude-haiku"
+    embedding_dimensions: int = 1536
 
     model_config = {"env_prefix": "BUSCADOU_", "env_file": ".env"}
 

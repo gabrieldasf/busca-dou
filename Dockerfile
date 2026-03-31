@@ -16,6 +16,8 @@ RUN pip install --no-cache-dir . && \
     apt-get purge -y --auto-remove build-essential && \
     chmod +x entrypoint.sh
 
+RUN mkdir -p data/pdfs
+
 EXPOSE 8000
 
 CMD ["./entrypoint.sh"]

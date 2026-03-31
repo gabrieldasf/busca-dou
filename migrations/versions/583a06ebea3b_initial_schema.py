@@ -1,21 +1,21 @@
 """initial_schema
 
 Revision ID: 583a06ebea3b
-Revises: 
+Revises:
 Create Date: 2026-03-31 02:56:29.213753
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '583a06ebea3b'
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -49,7 +49,11 @@ def upgrade() -> None:
     sa.Column('source_id', sa.UUID(), nullable=False),
     sa.Column('title', sa.Text(), nullable=True),
     sa.Column('body', sa.Text(), nullable=False),
-    sa.Column('body_tsv', postgresql.TSVECTOR(), sa.Computed("to_tsvector('portuguese', body)", persisted=True), nullable=True),
+    sa.Column(
+        'body_tsv', postgresql.TSVECTOR(),
+        sa.Computed("to_tsvector('portuguese', body)", persisted=True),
+        nullable=True,
+    ),
     sa.Column('section', sa.String(length=255), nullable=True),
     sa.Column('organ', sa.String(length=255), nullable=True),
     sa.Column('act_type', sa.String(length=255), nullable=True),
@@ -63,8 +67,14 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index('idx_publications_organ', 'publications', ['organ'], unique=False)
-    op.create_index('idx_publications_source_date', 'publications', ['source_id', sa.literal_column('published_at DESC')], unique=False)
-    op.create_index('idx_publications_tsv', 'publications', ['body_tsv'], unique=False, postgresql_using='gin')
+    op.create_index(
+        'idx_publications_source_date', 'publications',
+        ['source_id', sa.literal_column('published_at DESC')], unique=False,
+    )
+    op.create_index(
+        'idx_publications_tsv', 'publications',
+        ['body_tsv'], unique=False, postgresql_using='gin',
+    )
     # ### end Alembic commands ###
 
 

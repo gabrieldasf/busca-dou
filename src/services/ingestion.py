@@ -6,10 +6,13 @@ import logging
 from datetime import date
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.config import settings
 from src.scrapers.base import ScrapedPublication
 from src.scrapers.ioerj import IOERJAdapter
+from src.services.ai import generate_embedding
 from src.services.db import get_or_create_source, insert_publications
 from src.services.storage import StorageService
 
@@ -98,10 +101,18 @@ class IngestionService:
             await self._storage.save_pdf(source_slug, edition_date, part_code, pdf_bytes)
 
         pub_dicts = await self._process_publications(
-            source.id, source_slug, edition_date, scraped, pdf_cache,
+            source.id,
+            source_slug,
+            edition_date,
+            scraped,
+            pdf_cache,
         )
 
         count = await insert_publications(self._session, pub_dicts)
+
+        if settings.openrouter_api_key:
+            await self._generate_embeddings(pub_dicts)
+
         await self._session.commit()
 
         logger.info(
@@ -111,6 +122,29 @@ class IngestionService:
             edition_date,
         )
         return count
+
+    async def _generate_embeddings(self, pub_dicts: list[dict[str, Any]]) -> None:
+        """Generate embeddings for ingested publications (best-effort)."""
+        from src.models.publication import Publication
+
+        for pub_data in pub_dicts:
+            try:
+                body = pub_data.get("body", "")
+                if not body:
+                    continue
+                embedding = await generate_embedding(body)
+                stmt = (
+                    select(Publication)
+                    .where(Publication.body == body)
+                    .where(Publication.published_at == pub_data["published_at"])
+                    .limit(1)
+                )
+                result = await self._session.execute(stmt)
+                pub = result.scalar_one_or_none()
+                if pub:
+                    pub.embedding = embedding
+            except Exception:
+                logger.warning("Failed to generate embedding, skipping", exc_info=True)
 
     async def _process_publications(
         self,
