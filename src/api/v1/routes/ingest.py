@@ -11,7 +11,9 @@ from pydantic import BaseModel
 from sqlalchemy import CursorResult, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.v1.deps import get_api_key
 from src.app.database import get_session
+from src.models.api_key import ApiKey
 from src.models.publication import Publication
 from src.services.ingestion import IngestionService
 
@@ -36,6 +38,7 @@ class IngestResponse(BaseModel):
 async def ingest_edition(
     request: IngestRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
+    api_key: Annotated[ApiKey, Depends(get_api_key)],
 ) -> IngestResponse:
     """Trigger ingestion of a gazette edition.
 
@@ -59,6 +62,7 @@ async def ingest_edition(
 async def reingest_edition(
     request: IngestRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
+    api_key: Annotated[ApiKey, Depends(get_api_key)],
 ) -> IngestResponse:
     """Delete existing publications for a date and re-ingest."""
     del_stmt = delete(Publication).where(Publication.published_at == request.date)

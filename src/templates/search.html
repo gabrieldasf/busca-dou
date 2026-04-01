@@ -2,15 +2,21 @@
 {% block title %}BuscaDOU - Busca em Diarios Oficiais{% endblock %}
 
 {% block content %}
-<form hx-get="/search-results" hx-target="#results" hx-indicator="#search-spinner"
+<form hx-get="/search-results" hx-target="#results" hx-indicator="#search-spinner, #skeleton"
       class="pt-20 pb-8">
   <div class="relative">
     <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
     </svg>
     <input type="text" name="q" value="{{ q or '' }}" placeholder="Buscar publicacoes..."
-           class="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-14 pr-6 text-lg shadow-sm focus:shadow-md focus:outline-none transition-shadow duration-150"
+           aria-label="Buscar publicacoes no Diario Oficial"
+           hx-trigger="keyup changed delay:300ms" hx-get="/search-results" hx-target="#results"
+           hx-indicator="#search-spinner, #skeleton" hx-include="closest form"
+           class="w-full rounded-2xl border border-gray-200 bg-white py-4 pl-14 pr-6 text-lg shadow-sm focus:shadow-md focus:outline-none transition-all duration-150"
            autofocus>
+    <span class="absolute right-5 top-1/2 -translate-y-1/2 text-xs text-gray-300 pointer-events-none kbd-hint">
+      Pressione <kbd class="px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-400 font-mono">/</kbd> para buscar
+    </span>
     <button type="submit" class="hidden">Buscar</button>
   </div>
 
@@ -18,46 +24,51 @@
     <div class="flex flex-wrap gap-2">
       <button type="button" data-chip data-days="0"
               onclick="setDateRange(0)"
-              class="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors duration-150 cursor-pointer">
+              class="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-all duration-150 cursor-pointer">
         Hoje
       </button>
       <button type="button" data-chip data-days="7"
               onclick="setDateRange(7)"
-              class="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors duration-150 cursor-pointer">
+              class="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-all duration-150 cursor-pointer">
         Ultima semana
       </button>
       <button type="button" data-chip data-days="30"
               onclick="setDateRange(30)"
-              class="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors duration-150 cursor-pointer">
+              class="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-all duration-150 cursor-pointer">
         Ultimo mes
       </button>
       <input type="date" name="date_from" value="{{ date_from or '' }}"
+             aria-label="Data inicial"
              hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
-             class="text-xs rounded-lg border border-gray-200 px-2 py-1 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+             class="text-xs rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:shadow-md transition-all duration-150 cursor-pointer">
       <input type="date" name="date_to" value="{{ date_to or '' }}"
+             aria-label="Data final"
              hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
-             class="text-xs rounded-lg border border-gray-200 px-2 py-1 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+             class="text-xs rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:shadow-md transition-all duration-150 cursor-pointer">
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
       <select name="organ"
+              aria-label="Filtrar por orgao"
               hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
-              class="text-sm rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+              class="select-styled text-sm rounded-lg border border-gray-200 px-3 py-2 text-gray-600 bg-white focus:outline-none focus:shadow-md transition-all duration-150 cursor-pointer">
         <option value="">Todos os orgaos</option>
         {% for o in organs|default([]) %}
           <option value="{{ o }}" {% if organ == o %}selected{% endif %}>{{ o }}</option>
         {% endfor %}
       </select>
       <select name="section"
+              aria-label="Filtrar por secao"
               hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
-              class="text-sm rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+              class="select-styled text-sm rounded-lg border border-gray-200 px-3 py-2 text-gray-600 bg-white focus:outline-none focus:shadow-md transition-all duration-150 cursor-pointer">
         <option value="">Todas as secoes</option>
         {% for s in sections|default([]) %}
           <option value="{{ s }}" {% if section == s %}selected{% endif %}>{{ s }}</option>
         {% endfor %}
       </select>
       <select name="act_type"
+              aria-label="Filtrar por tipo de ato"
               hx-trigger="change" hx-get="/search-results" hx-target="#results" hx-include="closest form"
-              class="text-sm rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 bg-white focus:outline-none transition-shadow duration-150">
+              class="select-styled text-sm rounded-lg border border-gray-200 px-3 py-2 text-gray-600 bg-white focus:outline-none focus:shadow-md transition-all duration-150 cursor-pointer">
         <option value="">Todos os tipos</option>
         {% for a in act_types|default([]) %}
           <option value="{{ a }}" {% if act_type == a %}selected{% endif %}>{{ a }}</option>
@@ -85,7 +96,32 @@
   </script>
 </form>
 
-<div id="results">
+<!-- Skeleton loading -->
+<div id="skeleton" class="htmx-indicator">
+  {% for _ in range(4) %}
+  <div class="py-5 border-b border-gray-100 animate-pulse">
+    <div class="h-4 bg-gray-100 rounded-lg w-3/4 mb-3"></div>
+    <div class="h-3 bg-gray-50 rounded-lg w-full mb-2"></div>
+    <div class="h-3 bg-gray-50 rounded-lg w-2/3 mb-3"></div>
+    <div class="flex gap-2 mt-2">
+      <div class="h-2.5 bg-gray-50 rounded-full w-16"></div>
+      <div class="h-2.5 bg-gray-50 rounded-full w-20"></div>
+      <div class="h-2.5 bg-gray-50 rounded-full w-12"></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div id="results" class="fade-in">
   {% include "partials/results.html" %}
 </div>
+
+<script>
+var qInput = document.querySelector('input[name="q"]');
+var kbdHint = document.querySelector('.kbd-hint');
+if (qInput && kbdHint) {
+  qInput.addEventListener('focus', function() { kbdHint.style.display = 'none'; });
+  qInput.addEventListener('blur', function() { if (!this.value) kbdHint.style.display = ''; });
+}
+</script>
 {% endblock %}

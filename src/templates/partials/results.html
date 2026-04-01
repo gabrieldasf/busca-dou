@@ -1,11 +1,11 @@
-<div class="htmx-hide-on-request">
+<div class="htmx-hide-on-request fade-in">
   {% if publications is not none %}
     <div class="flex items-center justify-between mb-4">
       <p class="text-xs text-gray-400">
         {% if total == 0 %}
-          Nenhuma publicacao encontrada.
+          Nenhuma publicacao encontrada{% if q %} para "{{ q }}"{% endif %}. Tente termos mais gerais.
         {% else %}
-          {{ total }} resultado{{ 's' if total != 1 else '' }}
+          {{ total }} publicacao{{ 'es' if total != 1 else '' }} encontrada{{ 's' if total != 1 else '' }}{% if q %} para "{{ q }}"{% endif %}
         {% endif %}
       </p>
       <span id="search-spinner" class="htmx-indicator">
@@ -17,7 +17,7 @@
     </div>
 
     {% for pub in publications %}
-    <a href="/pub/{{ pub.id }}" class="block py-5 border-b border-gray-100 hover:bg-gray-50/50 transition-colors duration-150">
+    <a href="/pub/{{ pub.id }}" class="block py-5 -mx-3 px-3 border-b border-gray-100 rounded-lg hover:bg-gray-50/50 transition-all duration-150">
       <h3 class="text-[15px] font-medium text-gray-900 leading-snug truncate">
         {{ pub.title or 'Publicacao sem titulo' }}
       </h3>
@@ -31,21 +31,39 @@
     {% endfor %}
 
     {% if next_cursor %}
-    <div class="text-center mt-6">
+    <div class="text-center mt-8">
       <button hx-get="/search-results?q={{ q or '' }}&cursor={{ next_cursor }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if organ %}&organ={{ organ }}{% endif %}{% if section %}&section={{ section }}{% endif %}{% if act_type %}&act_type={{ act_type }}{% endif %}"
               hx-target="#results" hx-swap="innerHTML"
-              class="text-sm text-gray-500 hover:text-gray-900 transition-colors duration-150">
+              class="text-sm text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-300 rounded-xl px-6 py-2.5 transition-all duration-150 hover:shadow-sm">
         Carregar mais resultados
       </button>
     </div>
     {% endif %}
 
+  {% elif recent_publications is defined and recent_publications %}
+    <div class="pt-8">
+      <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-4">Publicacoes recentes</p>
+      {% for pub in recent_publications %}
+      <a href="/pub/{{ pub.id }}" class="block py-4 -mx-3 px-3 border-b border-gray-100 rounded-lg hover:bg-gray-50/50 transition-all duration-150">
+        <h3 class="text-[15px] font-medium text-gray-900 leading-snug truncate">
+          {{ pub.title or 'Publicacao sem titulo' }}
+        </h3>
+        <p class="text-xs text-gray-400 mt-1.5">
+          {{ pub.published_at.strftime('%d/%m/%Y') }}{% if pub.organ %} &middot; {{ pub.organ }}{% endif %}{% if pub.section %} &middot; {{ pub.section }}{% endif %}{% if pub.act_type %} &middot; {{ pub.act_type }}{% endif %}
+        </p>
+      </a>
+      {% endfor %}
+    </div>
+
   {% else %}
-    <div class="text-center py-16">
-      <svg class="w-12 h-12 text-gray-200 mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-      </svg>
-      <p class="text-gray-400 text-sm">Digite palavras-chave para buscar publicacoes.</p>
+    <div class="text-center py-20">
+      <div class="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-5">
+        <svg class="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <p class="text-gray-400 text-sm">Digite palavras-chave para buscar publicacoes do Diario Oficial.</p>
+      <p class="text-gray-300 text-xs mt-2">Use os filtros para refinar por data, orgao ou tipo de ato.</p>
     </div>
   {% endif %}
 </div>

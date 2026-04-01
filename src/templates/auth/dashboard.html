@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - BuscaDOU{% endblock %}
+
+{% block content %}
+<div class="pt-8">
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <p class="text-sm text-gray-400 mt-1">{{ user.name }} &middot; {{ user.email }}</p>
+    </div>
+    <form method="post" action="/auth/logout">
+      <button type="submit" class="text-sm text-gray-400 hover:text-gray-900 border border-gray-200 hover:border-gray-300 rounded-lg px-3 py-1.5 transition-all duration-150">
+        Sair
+      </button>
+    </form>
+  </div>
+
+  {% if new_key %}
+  <div class="bg-green-50 border border-green-100 rounded-xl p-5 mb-8 fade-in" role="status">
+    <div class="flex items-start gap-3">
+      <div class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <svg class="w-4 h-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-green-800 mb-1">API key criada com sucesso</p>
+        <p class="text-xs text-green-600 mb-3">Copie agora - ela nao sera exibida novamente.</p>
+        <div class="flex items-center gap-2">
+          <code id="new-key-value" class="bg-white border border-green-200 rounded-lg px-3 py-2 text-xs font-mono text-green-900 flex-1 select-all truncate">{{ new_key }}</code>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('new-key-value').textContent); this.textContent='Copiado!'; setTimeout(()=>this.textContent='Copiar',2000)"
+                  class="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-xs font-medium hover:bg-green-200 active:scale-95 transition-all duration-150 whitespace-nowrap">
+            Copiar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-semibold text-gray-900">API Keys</h2>
+    </div>
+
+    <form method="post" action="/dashboard/keys/create" class="flex gap-2 mb-6">
+      <input type="text" name="key_name" required placeholder="Nome da key (ex: Producao)"
+             aria-label="Nome da nova API key"
+             class="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:outline-none focus:shadow-md focus:border-brand-light/30 transition-all duration-150">
+      <button type="submit"
+              class="bg-brand text-white rounded-xl px-5 py-2.5 text-sm font-medium hover:bg-brand-light active:scale-[0.98] transition-all duration-150 shadow-sm hover:shadow-md whitespace-nowrap">
+        Criar key
+      </button>
+    </form>
+
+    {% if api_keys %}
+    <div class="divide-y divide-gray-100">
+      {% for key in api_keys %}
+      <div class="flex items-center justify-between py-4 group">
+        <div>
+          <p class="text-sm font-medium text-gray-900">{{ key.name }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">
+            Criada em {{ key.created_at.strftime('%d/%m/%Y') }}
+            {% if key.last_used_at %} &middot; Ultimo uso: {{ key.last_used_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          {% if key.is_active %}
+          <span class="text-xs text-green-600 bg-green-50 px-2.5 py-1 rounded-full font-medium">Ativa</span>
+          <form method="post" action="/dashboard/keys/{{ key.id }}/revoke">
+            <button type="submit" class="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all duration-150"
+                    aria-label="Revogar key {{ key.name }}">
+              Revogar
+            </button>
+          </form>
+          {% else %}
+          <span class="text-xs text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">Revogada</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-10">
+      <div class="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
+        <svg class="w-6 h-6 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M15 7h3a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-3m-6 0H6a5 5 0 0 1-5-5 5 5 0 0 1 5-5h3"/><line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+      </div>
+      <p class="text-sm text-gray-400">Nenhuma API key criada.</p>
+      <p class="text-xs text-gray-300 mt-1">Crie sua primeira key acima para comecar.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mt-6 bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Como usar</h2>
+    <p class="text-sm text-gray-500 mb-4">Inclua sua API key no header de cada requisicao:</p>
+    <div class="relative group">
+      <pre class="bg-gray-900 rounded-xl p-5 text-xs font-mono text-gray-300 overflow-x-auto leading-relaxed"><span class="text-brand-light">curl</span> -H <span class="text-green-400">"X-API-Key: sua_key_aqui"</span> \
+  <span class="text-gray-500">https://app-production-2f35.up.railway.app/api/v1/publications?q=decreto</span></pre>
+      <button onclick="navigator.clipboard.writeText('curl -H \"X-API-Key: sua_key_aqui\" https://app-production-2f35.up.railway.app/api/v1/publications?q=decreto'); this.textContent='Copiado!'; setTimeout(()=>this.textContent='Copiar',2000)"
+              class="absolute top-3 right-3 px-2.5 py-1 bg-gray-800 text-gray-400 rounded-lg text-xs hover:bg-gray-700 hover:text-gray-200 opacity-0 group-hover:opacity-100 transition-all duration-150">
+        Copiar
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}

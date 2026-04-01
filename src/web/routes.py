@@ -15,6 +15,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app.config import settings
 from src.app.database import get_session
 from src.models.publication import Publication
 
@@ -58,10 +59,27 @@ async def search_page(
     act_types_result = await session.execute(
         select(Publication.act_type).where(Publication.act_type.is_not(None)).distinct().order_by(Publication.act_type)
     )
+
+    # Fetch 5 most recent publications for empty state
+    recent_result = await session.execute(
+        select(
+            Publication.id,
+            Publication.title,
+            Publication.organ,
+            Publication.section,
+            Publication.act_type,
+            Publication.published_at,
+        )
+        .order_by(Publication.published_at.desc(), Publication.id.desc())
+        .limit(5)
+    )
+    recent_publications = list(recent_result.all())
+
     return templates.TemplateResponse(
         request, "search.html", {
             "publications": None,
             "q": None,
+            "recent_publications": recent_publications,
             "organs": [r[0] for r in organs_result.all()],
             "sections": [r[0] for r in sections_result.all()],
             "act_types": [r[0] for r in act_types_result.all()],
@@ -85,7 +103,18 @@ async def search_results(
     """Return search results as HTML partial (for HTMX)."""
     from datetime import date as date_type
 
+    from sqlalchemy.types import Float
+
     from src.api.v1.schemas import decode_cursor, encode_cursor
+    from src.services.ai import generate_embedding
+
+    # Generate query embedding for semantic search
+    query_embedding: list[float] | None = None
+    if q and settings.openrouter_api_key:
+        try:
+            query_embedding = await generate_embedding(q)
+        except Exception:
+            logger.warning("Embedding generation failed, falling back to keyword search")
 
     stmt = select(
         Publication.id,
@@ -99,7 +128,11 @@ async def search_results(
     )
 
     if q:
+        from sqlalchemy import case, cast
+
         tsquery = func.plainto_tsquery(literal_column("'portuguese'"), q)
+        keyword_rank = func.ts_rank(Publication.body_tsv, tsquery)
+
         stmt = stmt.add_columns(
             func.ts_headline(
                 literal_column("'portuguese'"),
@@ -107,9 +140,21 @@ async def search_results(
                 tsquery,
                 literal_column("'StartSel=<mark>, StopSel=</mark>, MaxWords=60, MinWords=20'"),
             ).label("snippet"),
-            func.ts_rank(Publication.body_tsv, tsquery).label("relevance"),
         )
         stmt = stmt.where(Publication.body_tsv.op("@@")(tsquery))
+
+        if query_embedding is not None:
+            semantic_score = case(
+                (
+                    Publication.embedding.is_not(None),
+                    cast(1 - Publication.embedding.cosine_distance(query_embedding), Float),
+                ),
+                else_=literal_column("0"),
+            )
+            hybrid_rank = 0.7 * keyword_rank + 0.3 * semantic_score
+            stmt = stmt.add_columns(hybrid_rank.label("relevance"))
+        else:
+            stmt = stmt.add_columns(keyword_rank.label("relevance"))
     else:
         stmt = stmt.add_columns(
             literal_column("NULL").label("snippet"),
@@ -156,7 +201,10 @@ async def search_results(
     count_result = await session.execute(count_stmt)
     total = count_result.scalar() or 0
 
-    stmt = stmt.order_by(Publication.published_at.desc(), Publication.id.desc())
+    if q:
+        stmt = stmt.order_by(literal_column("relevance").desc().nulls_last(), Publication.id.desc())
+    else:
+        stmt = stmt.order_by(Publication.published_at.desc(), Publication.id.desc())
     stmt = stmt.limit(limit + 1)
 
     result = await session.execute(stmt)

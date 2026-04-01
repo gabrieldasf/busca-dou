@@ -7,8 +7,9 @@ import uuid
 from datetime import date
 from typing import Any
 
-from sqlalchemy import Row, func, literal_column, select, tuple_
+from sqlalchemy import Row, case, cast, func, literal_column, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.types import Float
 
 from src.models.publication import Publication
 from src.models.source import Source
@@ -117,6 +118,8 @@ async def search_publications(
 
     if q:
         tsquery = func.plainto_tsquery(literal_column("'portuguese'"), q)
+        keyword_rank = func.ts_rank(Publication.body_tsv, tsquery)
+
         stmt = stmt.add_columns(
             func.ts_headline(
                 literal_column("'portuguese'"),
@@ -124,9 +127,32 @@ async def search_publications(
                 tsquery,
                 literal_column("'StartSel=<mark>, StopSel=</mark>, MaxWords=60, MinWords=20'"),
             ).label("snippet"),
-            func.ts_rank(Publication.body_tsv, tsquery).label("relevance"),
         )
         stmt = stmt.where(Publication.body_tsv.op("@@")(tsquery))
+
+        if query_embedding is not None:
+            semantic_score = case(
+                (
+                    Publication.embedding.is_not(None),
+                    cast(1 - Publication.embedding.cosine_distance(query_embedding), Float),
+                ),
+                else_=literal_column("0"),
+            )
+            hybrid_rank = 0.7 * keyword_rank + 0.3 * semantic_score
+            stmt = stmt.add_columns(hybrid_rank.label("relevance"))
+        else:
+            stmt = stmt.add_columns(keyword_rank.label("relevance"))
+    elif query_embedding is not None:
+        # Pure semantic search (no keyword)
+        semantic_score = cast(
+            1 - Publication.embedding.cosine_distance(query_embedding), Float,
+        )
+        stmt = stmt.add_columns(
+            literal_column("NULL").label("snippet"),
+            semantic_score.label("relevance"),
+        )
+        stmt = stmt.where(Publication.embedding.is_not(None))
+        stmt = stmt.where(semantic_score > 0.3)
     else:
         stmt = stmt.add_columns(
             literal_column("NULL").label("snippet"),
@@ -149,7 +175,11 @@ async def search_publications(
             tuple_(Publication.published_at, Publication.id) < tuple_(cursor_date, cursor_id)
         )
 
-    stmt = stmt.order_by(Publication.published_at.desc(), Publication.id.desc())
+    # Use relevance ordering when searching, date ordering otherwise
+    if q or query_embedding is not None:
+        stmt = stmt.order_by(literal_column("relevance").desc().nulls_last(), Publication.id.desc())
+    else:
+        stmt = stmt.order_by(Publication.published_at.desc(), Publication.id.desc())
     stmt = stmt.limit(limit + 1)
 
     result = await session.execute(stmt)

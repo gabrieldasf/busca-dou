@@ -2,29 +2,53 @@
 {% block title %}{{ pub.title or 'Publicacao' }} - BuscaDOU{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-  <a href="/" class="inline-block text-gray-400 hover:text-gray-900 transition-colors duration-150 mb-4">
-    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<div class="mb-8">
+  <a href="/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-900 transition-all duration-150 mb-6 group" aria-label="Voltar para busca">
+    <svg class="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M15 19l-7-7 7-7"/>
     </svg>
+    <span>Voltar</span>
   </a>
 
-  <h1 class="text-2xl font-bold text-gray-900 leading-tight mb-2">{{ pub.title or 'Publicacao sem titulo' }}</h1>
+  <h1 class="text-2xl font-bold text-gray-900 leading-tight mb-3">{{ pub.title or 'Publicacao sem titulo' }}</h1>
 
-  <p class="text-sm text-gray-400">
-    {{ pub.published_at.strftime('%d/%m/%Y') }}{% if pub.organ %} &middot; {{ pub.organ }}{% endif %}{% if pub.section %} &middot; {{ pub.section }}{% endif %}{% if pub.act_type %} &middot; {{ pub.act_type }}{% endif %}{% if pub.page_number %} &middot; Pag. {{ pub.page_number }}{% endif %}
-  </p>
+  <div class="flex flex-wrap items-center gap-2 text-xs">
+    <span class="inline-flex items-center gap-1 text-gray-500">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      {{ pub.published_at.strftime('%d/%m/%Y') }}
+    </span>
+    {% if pub.organ %}
+    <span class="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">{{ pub.organ }}</span>
+    {% endif %}
+    {% if pub.section %}
+    <span class="bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">{{ pub.section }}</span>
+    {% endif %}
+    {% if pub.act_type %}
+    <span class="bg-brand/5 text-brand px-2.5 py-0.5 rounded-full font-medium">{{ pub.act_type }}</span>
+    {% endif %}
+    {% if pub.page_number %}
+    <span class="text-gray-400">Pag. {{ pub.page_number }}</span>
+    {% endif %}
+  </div>
 </div>
 
-<div class="bg-white rounded-xl border border-gray-100 p-6">
-  <div class="prose prose-gray max-w-none leading-relaxed">{{ pub.body | nl2p }}</div>
+<div class="bg-white rounded-xl border border-gray-100 p-6 sm:p-8 shadow-sm">
+  <div class="prose prose-gray max-w-none leading-relaxed text-[15px]">{{ pub.body | nl2p }}</div>
 </div>
 
 {% if pub.pdf_url %}
-<div class="mt-4">
+<div class="mt-5">
   <a href="{{ pub.pdf_url }}" target="_blank" rel="noopener"
-     class="text-sm text-gray-400 hover:text-gray-900 transition-colors duration-150">
-    PDF original &rarr;
+     class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-brand-light transition-all duration-150 group">
+    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/>
+    </svg>
+    PDF original
+    <svg class="w-3 h-3 group-hover:translate-x-0.5 transition-transform duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M5 12h14m-7-7l7 7-7 7"/>
+    </svg>
   </a>
 </div>
 {% endif %}
